@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/index.css">
+    <style>
+
+        /* --- Toolbar Adjustments --- */
+        /* Position toolbar statically within its container */
+        #chart-toolbar {
+            /* position: absolute; */ /* REMOVE */
+            /* top: 10px; */
+            /* left: 10px; */
+            z-index: 10;
+            background: rgba(55, 65, 81, 0.9); /* bg-gray-700 with opacity */
+            border: 1px solid #4a5568; /* border-gray-600 */
+            border-radius: 0.375rem; /* rounded-md */
+            display: flex;
+            /* flex-direction: column; */ /* Keep vertical for now, adjust if needed */
+            padding: 0.5rem; /* p-2 */
+            margin-bottom: 0.5rem; /* Add some spacing below */
+        }
+        #chart-toolbar button {
+            background: none;
+            border: 1px solid transparent;
+            padding: 0.25rem; /* p-1 */
+            margin-right: 0.25rem; /* Add horizontal spacing mr-1 */
+            /* margin-bottom: 3px; Remove vertical spacing */
+            cursor: pointer;
+            width: 32px; /* Slightly larger */
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #d1d5db; /* text-gray-300 */
+        }
+         #chart-toolbar button:last-child {
+             margin-right: 0; /* Remove margin from last button */
+             /* margin-bottom: 0; */
+         }
+        #chart-toolbar button svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor; /* Use button text color */
+        }
+        #chart-toolbar button:hover {
+            background: rgba(75, 85, 99, 0.8); /* bg-gray-600 */
+            border-color: #9ca3af; /* border-gray-400 */
+            color: #f3f4f6; /* text-gray-100 */
+        }
+        #chart-toolbar button.active {
+            background: rgba(107, 114, 128, 1.0); /* bg-gray-500 */
+            border-color: #9ca3af; /* border-gray-400 */
+            color: #ffffff; /* text-white */
+        }
+        /* --- End Toolbar Adjustments --- */
+
+         /* Context Menu - Keep absolute positioning */
+         #context-menu {
+            position: absolute;
+            display: none;
+            background-color: #4a5568; /* bg-gray-600 */
+            border: 1px solid #9ca3af; /* border-gray-400 */
+            padding: 5px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            z-index: 1000;
+            border-radius: 0.25rem; /* rounded-sm */
+         }
+         #delete-object {
+             display: block;
+             width: 100%;
+             text-align: left;
+             border: none;
+             background: none;
+             padding: 3px 8px;
+             cursor: pointer;
+             color: #e5e7eb; /* text-gray-200 */
+             font-size: 0.875rem; /* text-sm */
+         }
+         #delete-object:hover {
+            background-color: #6b7280; /* bg-gray-500 */
+            color: #ffffff; /* text-white */
+         }
+
+         /* Style for active tab */
+         .tab-button.active {
+             background-color: #4a5568; /* bg-gray-600 */
+             font-weight: bold;
+         }
+         /* Hide inactive tab content */
+         .tab-content { display: none; }
+         .tab-content.active { display: block; }
+
+    </style>
+    <script src="/lightweight-charts/dist/lightweight-charts.standalone.development.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+
+    <div class="container mx-auto p-5">
+        <!-- Header: Username, Leaderboard, and Balance -->
+        <div class="flex justify-between items-center mb-6 pb-3 border-b border-gray-700">
+            <div class="flex items-center gap-4"> <!-- Group username and icon -->
+                <h1 class="text-2xl font-semibold" id="username-display"></h1>
+                <a href="/" title="Leaderboard" class="text-gray-400 hover:text-white transition duration-150">
+                    <!-- Bar chart icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </a>
+            </div>
+            <div class="text-xl"> <!-- Balance on the right -->
+                Balance: <span id="balance-display" class="font-bold text-green-400">$0.00</span>
+            </div>
+        </div>
+
+        <!-- Main Content Area: Trade Controls, Positions, Chart -->
+        <div class="flex flex-col gap-6">
+
+            <!-- Right Column First: Chart -->
+            <div class="w-full bg-gray-800 p-4 rounded-lg shadow">
+                <!-- Chart container (was #chart-container, now simplified) -->
+                <div id="tvchart-container">
+                    <div id="tvchart"></div>
+                    <div class="tvchart-tools">
+                    <button id="btnCrosshair" class="tvchart-button active">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="24" height="24">
+                            <g fill="none" stroke="rgba(128, 128, 128, 1)" stroke-width="1.2">
+                                <path d="M18 15h8v-1h-8z"></path>
+                                <path d="M14 18v8h1v-8zM14 3v8h1v-8zM3 15h8v-1h-8z"></path>
+                            </g>
+                        </svg>
+                    </button>
+                    <button id="btnTrendLine" class="tvchart-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="24" height="24">
+                            <g fill="none" stroke="rgba(128, 128, 128, 1)" stroke-width="1.2">
+                                <path d="M7.354 21.354l14-14-.707-.707-14 14z"></path>
+                                <path d="M22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
+                            </g>
+                        </svg>
+                    </button>
+                    <button id="btnBox" class="tvchart-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="24" height="24">
+                            <g fill="none" stroke="rgba(128, 128, 128, 1)" stroke-width="1.5">
+                                <path d="M7.5 6h13v-1h-13z" id="Line"></path>
+                                <path d="M7.5 23h13v-1h-13z"></path>
+                                <path d="M5 7.5v13h1v-13z"></path>
+                                <path d="M22 7.5v13h1v-13z"></path>
+                                <path d="M5.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 7c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM22.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5zM5.5 24c.828 0 1.5-.672 1.5-1.5s-.672-1.5-1.5-1.5-1.5.672-1.5 1.5.672 1.5 1.5 1.5zm0 1c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5 2.5 1.119 2.5 2.5-1.119 2.5-2.5 2.5z"></path>
+                            </g>
+                        </svg>
+                    </button>
+                    <button id="btnProfitLoss" class="tvchart-button">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="24" height="24">
+                            <g fill="none" stroke="rgba(128, 128, 128, 1)" stroke-width="1.5">
+                                <path clip-rule="evenodd" d="M4.5 5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2 6.5A2.5 2.5 0 0 1 6.95 6H24v1H6.95A2.5 2.5 0 0 1 2 6.5zM4.5 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2 16.5a2.5 2.5 0 0 1 4.95-.5h13.1a2.5 2.5 0 1 1 0 1H6.95A2.5 2.5 0 0 1 2 16.5zM22.5 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-18 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM2 22.5a2.5 2.5 0 0 1 4.95-.5H24v1H6.95A2.5 2.5 0 0 1 2 22.5z"></path>
+                                <path clip-rule="evenodd" d="M22.4 8.94l-1.39.63-.41-.91 1.39-.63.41.91zm-4 1.8l-1.39.63-.41-.91 1.39-.63.41.91zm-4 1.8l-1.4.63-.4-.91 1.39-.63.41.91zm-4 1.8l-1.4.63-.4-.91 1.39-.63.41.91z"></path>
+                            </g>
+                        </svg>
+                    </button>
+                    </div>
+                    <canvas id="overlayCanvas"></canvas>
+                </div>
+                <!-- Interval Selector -->
+                <div id="interval-selector" class="mt-2 flex justify-start gap-2">
+                    <button data-interval="1m" class="interval-button bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded active">1m</button>
+                    <button data-interval="5m" class="interval-button bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded">5m</button>
+                    <button data-interval="30m" class="interval-button bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded">30m</button>
+                    <button data-interval="1h" class="interval-button bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded">1h</button>
+                    <button data-interval="1d" class="interval-button bg-gray-700 hover:bg-gray-600 text-xs px-2 py-1 rounded">1d</button>
+                </div>
+                <!-- Resize Handle -->
+                <div id="chart-resize-handle" class="w-full h-2 bg-gray-600 hover:bg-gray-500 cursor-row-resize rounded-b-lg"></div>
+            </div>
+
+            <!-- Left Column Below: Trade & Positions -->
+            <div class="w-full flex flex-col gap-6">
+                <!-- Trade Section -->
+                <div class="bg-gray-800 p-4 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-3 border-b border-gray-700 pb-2">Trade</h2>
+                    <div class="flex items-end justify-between gap-3">
+                        <!-- Ask Price & Sell Button -->
+                        <div class="flex-1 text-center">
+                            <div id="ask-price" class="text-xs text-red-500 mb-1">Ask:</div>
+                            <button id="sell-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-sm transition duration-150">Sell</button>
+                        </div>
+
+                        <!-- Lots Input -->
+                        <div class="flex-shrink mx-2 text-center">
+                            <input type="number" id="trade-lots" value="0.01" min="0.01" step="0.01" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white w-20 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 block mx-auto">
+                            <label for="trade-lots" class="text-xs text-gray-400 mt-1 block">Lots</label>
+                        </div>
+
+                        <!-- Bid Price & Buy Button -->
+                        <div class="flex-1 text-center">
+                            <div id="bid-price" class="text-xs text-green-500 mb-1">Bid:</div>
+                            <button id="buy-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm transition duration-150">Buy</button>
+                        </div>
+                    </div>
+                    <!-- Simulation Controls -->
+                    <div class="mt-4 pt-3 border-t border-gray-700 flex justify-center gap-3">
+                        <button id="new-chart-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-xs transition duration-150">New Chart</button>
+                        <button id="step-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-xs transition duration-150">Step</button>
+                        <button id="step-10x-button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded text-xs transition duration-150">Step 10x</button>
+                    </div>
+                </div>
+
+                <!-- Positions Section -->
+                <div class="bg-gray-800 p-4 rounded-lg shadow flex-grow">
+                    <div class="flex border-b border-gray-700 mb-3">
+                        <button class="tab-button py-2 px-4 text-gray-400 hover:text-white focus:outline-none active" data-tab="current-positions">Current Positions</button>
+                        <button class="tab-button py-2 px-4 text-gray-400 hover:text-white focus:outline-none" data-tab="closed-positions">Closed Positions</button>
+                    </div>
+                    <div id="current-positions" class="tab-content active">
+                        <p class="text-gray-400 text-sm">No open positions.</p>
+                        <!-- Position data will go here -->
+                    </div>
+                    <div id="closed-positions" class="tab-content"> <!-- Changed ID from trade-history -->
+                        <p class="text-gray-400 text-sm">No trade history.</p>
+                        <!-- History data will go here -->
+                    </div>
+                </div>
+            </div>
+
+        </div> <!-- End Main Content Flex -->
+    </div> <!-- End Container -->
+
+    <!-- Context Menu (keep outside main flow) -->
+    <div id="context-menu">
+        <button id="delete-object">Delete</button>
+    </div>
+
+    <script src="/scripts/index.js"></script>
+
+
+    <script>
+        const chartManager = new ChartManager([]);
+
+        // Expanded test data for candlestick chart
+        const data = [
+            { time: '2023-01-01', open: 100, high: 120, low: 90, close: 110, volume: 200 },
+            { time: '2023-01-02', open: 110, high: 130, low: 100, close: 120, volume: 250 },
+            { time: '2023-01-03', open: 120, high: 140, low: 110, close: 130, volume: 300 },
+            { time: '2023-01-04', open: 130, high: 150, low: 120, close: 140, volume: 350 },
+            { time: '2023-01-05', open: 140, high: 160, low: 130, close: 150, volume: 400 },
+            { time: '2023-01-06', open: 150, high: 170, low: 140, close: 160, volume: 450 },
+            { time: '2023-01-07', open: 160, high: 180, low: 150, close: 170, volume: 500 },
+            { time: '2023-01-08', open: 170, high: 190, low: 160, close: 180, volume: 550 },
+            { time: '2023-01-09', open: 180, high: 200, low: 170, close: 190, volume: 600 },
+            { time: '2023-01-10', open: 190, high: 210, low: 180, close: 200, volume: 650 },
+        ];
+
+        // Ticker list
+        const reset_tickers = [
+            "AAPL", "MSFT", "AMZN", "GOOGL", "TSLA", "FB", "NVDA", "JPM", "V", "JNJ", "PG", "UNH", "MA", "INTC", "HD",
+            "BAC", "DIS", "CMCSA", "VZ", "ADBE", "NFLX", "PYPL", "T", "CRM", "PEP", "CSCO", "ABBV", "KO", "XOM", "MRK", "WMT",
+            "ABT", "PFE", "CVX", "NKE", "TMO", "ACN", "COST", "DHR", "AMGN", "NEE", "MDT", "AVGO", "UNP", "TXN", "QCOM", "HON",
+            "LIN", "PM", "LLY", "UPS", "SBUX", "LOW", "BA", "ORCL", "AMD", "IBM", "NOW", "GS", "INTU", "CHTR", "AMAT", "CAT",
+            "FIS", "MMM", "BDX", "GILD", "CVS", "MO", "SPGI", "ANTM", "ISRG", "ADP", "CME", "MMC", "VRTX", "ZTS", "CSX", "RTX",
+            "TGT", "LMT", "SCHW", "BIIB", "CI", "SYK", "PNC", "AXP", "APD", "FDX", "BKNG", "TMUS", "COP", "DUK", "DOW", "ECL",
+            "SO", "ADI", "AGN", "BDX", "D", "EMR", "EW", "EXC", "HUM", "ICE", "KLAC", "MCD", "MCK", "MET", "MS", "NEE", "NSC",
+            "PLD", "PSX", "SPG", "TJX", "WBA", "WFC", "AIG", "ALL", "APTV", "BIIB", "BSX", "COF", "DAL", "DE", "DXCM", "EQR",
+            "ETN", "GD", "ITW", "JCI", "KMB", "KR", "MAR", "MTD", "MU", "NEM", "ORLY", "PKG", "RMD", "SWK", "UAL", "VRTX",
+            "WELL", "YUM", "BIO", "BSX", "CTSH", "DRI", "EBAY", "FISV", "FLT", "GPN", "IDXX", "ILMN", "IQV",
+            "KHC", "MNST", "MSCI", "NTAP", "NUE", "PAYX", "REGN", "ROST", "STZ", "TT", "VRSK", "WST", "XLNX", "ALGN", "ANSS",
+            "APH", "CERN", "EXPE", "FLIR", "FTNT", "KEYS", "LEN", "LRCX", "MXIM", "NTRS", "ODFL", "OKTA", "POOL", "SNPS",
+            "TFX", "TTWO", "UAL", "ULTA", "URI", "VRSN", "ZBRA", "ZG", "AAP", "DLTR", "ETSY", "FOXA",
+            "HCA", "HOLX", "IDXX", "INCY", "IR", "JKHY", "MKTX", "MNST", "MTCH", "NTES", "NTNX", "NWSA",
+            "PEAK", "PENN", "PTON", "ROKU", "SEDG", "SPLK", "TTD", "TWTR", "UAA", "WYNN",
+        ];
+
+        // const canvas = document.getElementById('candlestickChart');
+        // const ctx = canvas.getContext('2d');
+        const resizeHandle = document.getElementById('chart-resize-handle');
+
+        // Chart Resizing State
+        let isResizingChart = false;
+        let chartResizeStartY = 0;
+
+     
+        let zoomLevel = 1; // Initial zoom level
+        const baseWidth = 10; // Base width of each candlestick
+        const baseSpacing = 5; // Base spacing between candlesticks
+        let offsetX = 0; // Offset for panning
+        let startX; // Starting X position for dragging/drawing
+        let mouseX; // Mouse X position for crosshair
+        let mouseY; // Mouse Y position for crosshair
+
+        // --- Tool State ---
+        let selectedTool = 'pointer'; // 'pointer', 'trendline', 'zone'
+        let isDrawing = false;
+        let isPanning = false; // Separate flag for pointer panning
+        let drawingStartCoords = null; // { xIndex: number, price: number } // For trendline/zone start
+        let panStartX = 0; // For pointer panning start pixel X
+        let currentPreview = null; // Temporary object being drawn
+        const drawnObjects = []; // Stores { id: number, type: 'trendline'/'zone', start: {xIndex, price}, end: {xIndex, price} }
+        let nextObjectId = 0; // Simple ID counter for drawn objects
+
+        // Context menu state
+        let contextMenuVisible = false;
+        let contextObjectId = null; // ID of the object under the context menu
+
+        // Edge Panning State
+        let edgePanningDirection = 0; // -1 for left, 1 for right, 0 for none
+        let edgePanAnimationFrameId = null;
+        const edgePanZone = 30; // Pixels from edge to trigger panning
+        const edgePanSpeed = 5; // Pixels to pan per frame
+        let lastShiftKeyState = false; // Track shift for snapping during panning
+
+        // Calculate min and max prices for scaling - Will be updated dynamically
+        let currentMinPrice = Math.min(...data.map(d => d.low));
+        let currentMaxPrice = Math.max(...data.map(d => d.high));
+        let currentPriceRange = currentMaxPrice - currentMinPrice;
+        let targetMinPrice = currentMinPrice;
+        let targetMaxPrice = currentMaxPrice;
+        const initialMinPrice = currentMinPrice; // Store initial full range
+        const initialMaxPrice = currentMaxPrice;
+
+        // Animation state
+        let animationFrameId = null;
+        let animationStartTime = 0;
+        const animationDuration = 200; // ms
+        let startMinPrice = currentMinPrice; // Prices at the start of an animation
+        let startMaxPrice = currentMaxPrice;
+
+        // --- Simulation & Data State ---
+        let recentlyUsedTickers = [];
+        const MAX_RECENT_TICKERS = 10; // Avoid reusing the last 10 tickers
+        let currentTicker = null;
+        let currentEndDate = null;
+        let selectedInterval = '1m'; // Default interval
+
+        let backgroundFullHistoricalData = [];
+        let backgroundDisplayedData = [];
+        let backgroundCurrentTimeIndex = -1;
+        let backgroundSelectedInterval = null;
+
+        let fullHistoricalData = [...data]; // Holds the full fetched data (using static for now)
+        let displayedData = []; // Data currently shown on chart
+        let currentTimeIndex = -1; // Index of the last *visible* candle in fullHistoricalData
+
+
+        // Current Positions
+        let currentPositions = [];
+        let closedPositions = [];
+
+        // Easing function (ease-out cubic)
+        const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+        // Function to calculate 'nice' intervals for grid lines
+        const calculateNiceStep = (range, targetSteps) => {
+            if (range <= 0 || !isFinite(range) || !isFinite(targetSteps) || targetSteps <= 0) return 1;
+            const roughStep = range / targetSteps;
+            if (roughStep <= 0 || !isFinite(roughStep)) return 1;
+            const exponent = Math.floor(Math.log10(roughStep));
+            const magnitude = Math.pow(10, exponent);
+            const mantissa = roughStep / magnitude;
+
+            let niceMantissa;
+            if (mantissa < 1.5) {
+                niceMantissa = 1;
+            } else if (mantissa < 3.5) {
+                niceMantissa = 2;
+            } else if (mantissa < 7.5) {
+                niceMantissa = 5;
+            } else {
+                niceMantissa = 10;
+            }
+            const niceStepValue = niceMantissa * magnitude;
+            return niceStepValue > 0 ? niceStepValue : 1; // Ensure step is positive
+        };
+
+
+
+
+
+        // --- Angle Snapping Logic ---
+        const snapAngles = [0, 30, 45, 60, 90, 120, 135, 150, 180]; // Degrees
+        const snapAngleRadians = snapAngles.map(a => a * Math.PI / 180);
+
+        const snapToEndPoint = (startPixel, currentPixel, shiftKeyPressed) => {
+            // Get current mouse coords in data space first
+            const mouseCoords = pixelToCoords(currentPixel.x, currentPixel.y);
+
+            if (!shiftKeyPressed || selectedTool !== 'trendline') {
+                return mouseCoords; // No snapping
+            }
+
+            const dx = currentPixel.x - startPixel.x;
+            const dy = currentPixel.y - startPixel.y;
+            // Prevent snapping if points are too close
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+                 return mouseCoords;
+            }
+
+            const currentAngle = Math.atan2(dy, dx);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            let closestAngle = currentAngle;
+            let minAngleDiff = Math.PI; // Max possible difference
+
+            // Check positive and negative angles relative to horizontal
+            const referenceAngles = [...snapAngleRadians, ...snapAngleRadians.map(a => a - Math.PI)];
+
+            referenceAngles.forEach(snapRad => {
+                // Normalize angle difference to be between -PI and PI
+                let angleDiff = snapRad - currentAngle;
+                while (angleDiff <= -Math.PI) angleDiff += 2 * Math.PI;
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+
+                if (Math.abs(angleDiff) < minAngleDiff) {
+                    minAngleDiff = Math.abs(angleDiff);
+                    closestAngle = snapRad;
+                }
+            });
+
+            // Calculate the new end point in pixel space based on the snapped angle and original distance
+            let snappedX = startPixel.x + distance * Math.cos(closestAngle);
+            let snappedY = startPixel.y + distance * Math.sin(closestAngle);
+
+            // --- Add Fix for 90-degree snapping ---
+            // Check if the angle is very close to vertical (+/- 90 degrees)
+            const ninetyDegreesRad = Math.PI / 2;
+            const epsilon = 1e-6; // Small tolerance for floating point comparison
+            if (Math.abs(closestAngle - ninetyDegreesRad) < epsilon || Math.abs(closestAngle + ninetyDegreesRad) < epsilon) {
+                snappedX = startPixel.x; // Force perfectly vertical alignment
+            }
+            // --- End Fix ---
+
+            // Convert snapped pixel coords back to data coords
+            return pixelToCoords(snappedX, snappedY);
+        };
+        // --- End Angle Snapping ---
+
+        // --- Animation Loop ---
+        const animationLoop = (timestamp) => {
+            if (!animationStartTime) {
+                animationStartTime = timestamp;
+            }
+            const elapsed = timestamp - animationStartTime;
+            const progress = Math.min(elapsed / animationDuration, 1);
+            const easedProgress = easeOutCubic(progress);
+
+            currentMinPrice = startMinPrice + (targetMinPrice - startMinPrice) * easedProgress;
+            currentMaxPrice = startMaxPrice + (targetMaxPrice - startMaxPrice) * easedProgress;
+            currentPriceRange = Math.max(0.0001, currentMaxPrice - currentMinPrice); // Prevent zero range
+
+            // drawChart();
+
+            if (progress < 1) {
+                animationFrameId = requestAnimationFrame(animationLoop);
+            } else {
+                currentMinPrice = targetMinPrice;
+                currentMaxPrice = targetMaxPrice;
+                currentPriceRange = Math.max(0.0001, currentMaxPrice - currentMinPrice);
+                animationFrameId = null;
+                animationStartTime = 0;
+                // Redraw one last time with exact values
+                // drawChart();
+            }
+        };
+
+
+        // --- Context Menu UI Functions ---
+        const contextMenu = document.getElementById('context-menu');
+        const deleteButton = document.getElementById('delete-object');
+
+        const showContextMenu = (x, y) => {
+            // Adjust position slightly if menu would go off screen
+            const menuWidth = contextMenu.offsetWidth || 100; // Estimate width
+            const menuHeight = contextMenu.offsetHeight || 30; // Estimate height
+            const bodyWidth = document.body.clientWidth;
+            const bodyHeight = document.body.clientHeight;
+
+            let left = x + 5;
+            let top = y + 5;
+
+            if (left + menuWidth > bodyWidth) {
+                left = x - menuWidth - 5;
+            }
+            if (top + menuHeight > bodyHeight) {
+                top = y - menuHeight - 5;
+            }
+
+            contextMenu.style.left = `${Math.max(0, left)}px`;
+            contextMenu.style.top = `${Math.max(0, top)}px`;
+            contextMenu.style.display = 'block';
+            contextMenuVisible = true;
+        };
+
+        const hideContextMenu = () => {
+            if (contextMenuVisible) {
+                contextMenu.style.display = 'none';
+                contextMenuVisible = false;
+                const previouslySelectedId = contextObjectId;
+                contextObjectId = null;
+                // Redraw if an object was highlighted
+                if (previouslySelectedId !== null) {
+                    // requestRedraw(true);
+                }
+            }
+        };
+
+        deleteButton.addEventListener('click', () => {
+            if (contextObjectId !== null) {
+                const indexToRemove = drawnObjects.findIndex(obj => obj.id === contextObjectId);
+                if (indexToRemove > -1) {
+                    drawnObjects.splice(indexToRemove, 1);
+                }
+            }
+            hideContextMenu(); // Also redraws
+            // requestRedraw(true); // Redraw is handled by hideContextMenu
+        });
+
+
+        // Lots input logic
+        document.querySelector('#trade-lots').addEventListener('input', (event) => {
+            updateAskBidPrices();
+            if (chartManager) {
+                chartManager.renderChart(displayedData);
+            }
+        });
+        
+
+
+        // --- NEW UI Element Listeners ---
+        const newChartButton = document.getElementById('new-chart-button');
+        const stepButton = document.getElementById('step-button');
+        const step10xButton = document.getElementById('step-10x-button');
+        const buyButton = document.getElementById('buy-button');
+        const sellButton = document.getElementById('sell-button');
+        const lotsInput = document.getElementById('trade-lots');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+
+        function getCurrentInvestedBalance() {
+            let investedBalance = 0;
+
+            currentPositions.forEach(pos => {
+                investedBalance += pos.total;
+            });
+
+            return investedBalance;
+        }
+
+        async function updateBalanceFetch(buy_sell=0, buy_or_sell=null) {
+
+            let newBalance = balance;
+
+            let currentMarketPrice = null;
+            if (backgroundCurrentTimeIndex >= 0 && backgroundCurrentTimeIndex < backgroundFullHistoricalData.length) {
+                currentMarketPrice = backgroundFullHistoricalData[backgroundCurrentTimeIndex].close;
+            }
+
+            if (currentMarketPrice == null) {
+                return;
+            }
+
+            currentPositions.forEach(pos => {
+                const currentPrice = currentMarketPrice; // Use the latest market price
+                const entryPrice = pos.entryPrice;
+                const size = pos.size;
+
+                // Calculate P/L for the position
+                let profitLoss = 0;
+                if (pos.side === 'Buy') {
+                    profitLoss = (currentPrice - entryPrice) * size;
+                } else if (pos.side === 'Sell') {
+                    profitLoss = (entryPrice - currentPrice) * size;
+                }
+
+                console.log('plll', profitLoss);
+
+                // Update the balance with the current P/L
+                newBalance += profitLoss;
+            });
+
+            console.log('newBalance', newBalance);
+
+            let body = {
+                username: getCookie('username'),
+                password: getCookie('password'),
+                balance: newBalance,
+                buy_sell: buy_sell,
+            }
+            if (buy_sell != 0) {
+                body.buy_or_sell = buy_or_sell;
+            }
+
+            let r = await fetch(`/api/set-balance`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            }).then(res => res.json());
+
+            if (r.success) {
+
+            } else {
+                console.error('Failed to update balance');
+            }
+
+        }
+
+        async function updateCurrentPositions() {
+            const positionsDiv = document.getElementById('current-positions');
+            if (!positionsDiv) {
+                console.error('Positions container div not found.');
+                return;
+            }
+
+            // Clear previous content
+            positionsDiv.innerHTML = '';
+
+            if (!currentPositions || currentPositions.length === 0) {
+                positionsDiv.innerHTML = '<p class="text-gray-400 text-sm">No open positions.</p>';
+                return;
+            }
+
+            // Create table structure
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-700 text-sm';
+
+            const thead = document.createElement('thead');
+            thead.className = 'bg-gray-700';
+            thead.innerHTML = `
+                <tr>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Time</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Symbol</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Side</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Size</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Total ($)</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">P/L ($, %)</th> <!-- Updated P/L Header -->
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Actions</th>
+                </tr>
+            `;
+
+            const tbody = document.createElement('tbody');
+            tbody.className = 'bg-gray-800 divide-y divide-gray-600';
+
+            // Get the current market price (use close of the latest candle)
+            let currentMarketPrice = null;
+            if (backgroundCurrentTimeIndex >= 0 && backgroundCurrentTimeIndex < backgroundFullHistoricalData.length) {
+                currentMarketPrice = backgroundFullHistoricalData[backgroundCurrentTimeIndex].close;
+            }
+
+            currentPositions.forEach((pos, index) => {
+                const tr = document.createElement('tr');
+
+                let pnl = 0;
+                let pnlPercent = 0;
+                let currentPriceDisplay = 'N/A';
+                const entryPrice = parseFloat(pos.entryPrice);
+                const totalCost = (entryPrice * pos.size);
+
+                if (currentMarketPrice !== null) {
+                    currentPriceDisplay = `$${parseFloat(currentMarketPrice).toFixed(2)}`; // Display formatted current price
+                    // Calculate P/L
+                    if (pos.side === 'Buy') {
+                        pnl = (currentMarketPrice - entryPrice) * pos.size;
+                    } else if (pos.side === 'Sell') {
+                        pnl = (entryPrice - currentMarketPrice) * pos.size;
+                    }
+                    // Calculate P/L Percentage
+                    if (totalCost !== 0) {
+                        pnlPercent = (pnl / totalCost) * 100;
+                    }
+                }
+
+                const pnlClass = pnl >= 0 ? 'text-green-400' : 'text-red-400';
+                const formattedTime = pos.entryTime ? new Date(pos.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A';
+                const pnlDisplay = `${pnl.toFixed(2)} (${pnlPercent.toFixed(2)}%)`; // Combine $ and %
+
+                tr.innerHTML = `
+                    <td class="px-4 py-2 whitespace-nowrap">${formattedTime}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${'N/A'}</td> <!-- Assuming currentTicker applies -->
+                    <td class="px-4 py-2 whitespace-nowrap">${pos.side}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${pos.size}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">$${entryPrice.toFixed(2)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${currentPriceDisplay}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">$${totalCost.toFixed(2)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap ${pnlClass}">${pnlDisplay}</td> <!-- Updated P/L Cell -->
+                    <td class="px-4 py-2 whitespace-nowrap">
+                        <button onclick="closePosition(${index})" class="text-red-500 hover:text-red-700 text-xs font-medium">Close</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            positionsDiv.appendChild(table);
+        }
+
+        async function getPrediction() {
+            if (fullHistoricalData.length - displayedData.length > 300 && displayedData.length >= 60 && new Date(displayedData[currentTimeIndex].time).getDay() == new Date(displayedData[currentTimeIndex - 60].time).getDay()) {
+                
+                let average = 0;
+                let counter = 0;
+
+                let min = displayedData[currentTimeIndex].low;
+                let max = displayedData[currentTimeIndex].high;
+                let volumeMin = displayedData[currentTimeIndex].volume;
+                let volumeMax = displayedData[currentTimeIndex].volume;
+
+                for (let i = 0; i < 60; i++) {
+                    if (displayedData[currentTimeIndex - i].low < min) {
+                        min = displayedData[currentTimeIndex - i].low;
+                    }
+                    if (displayedData[currentTimeIndex - i].high > max) {
+                        max = displayedData[currentTimeIndex - i].high;
+                    }
+                    if (displayedData[currentTimeIndex - i].volume < volumeMin) {
+                        volumeMin = displayedData[currentTimeIndex - i].volume;
+                    }
+                    if (displayedData[currentTimeIndex - i].volume > volumeMax) {
+                        volumeMax = displayedData[currentTimeIndex - i].volume;
+                    }
+                    average += Math.abs(displayedData[currentTimeIndex - i].close - displayedData[currentTimeIndex - i - 1].close);
+                    counter++;
+                }
+
+                average = average / counter;
+                let p_l = average * 5;
+
+                let data = [];
+                for (let i = 0; i < 60; i++) {
+                    data.push((displayedData[currentTimeIndex - i].low - min) / (max - min));
+                    data.push((displayedData[currentTimeIndex - i].high - min) / (max - min));
+                    data.push((displayedData[currentTimeIndex - i].volume - volumeMin) / (volumeMax - volumeMin));
+                    data.push((displayedData[currentTimeIndex - i].close - min) / (max - min));
+                }
+                
+                let r = await fetch(`http://localhost:8000/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({stock_data: data})
+                }).then(res => res.json());
+
+                if (r.success) {
+                    console.log(r.output)
+                    console.log('Profit/Loss: ' + p_l)
+                    console.log('Exit at ' + (p_l + displayedData[currentTimeIndex].close) + ' or ' + (displayedData[currentTimeIndex].close - p_l))
+                } else {
+                    console.error('Failed to get prediction');
+                }
+            }
+            return null;
+        }
+
+        async function closeAllPositions() {
+            while (currentPositions.length > 0) {
+                await closePosition(0, false);
+            }
+            updateCurrentPositions();
+        }
+
+        // Function to close a position by its index in the currentPositions array
+        async function closePosition(index, log=true) {
+            if (index >= 0 && index < currentPositions.length) {
+                const positionToClose = currentPositions[index];
+                console.log("Closing position:", positionToClose);
+
+                // --- Recalculate final P/L at the moment of closing --- START
+                let finalPnl = 0;
+                let closingPrice = null;
+                if (backgroundCurrentTimeIndex >= 0 && backgroundFullHistoricalData[backgroundCurrentTimeIndex]) {
+                    closingPrice = backgroundFullHistoricalData[backgroundCurrentTimeIndex].close;
+                    if (positionToClose.side === 'Buy') {
+                        finalPnl = (closingPrice - positionToClose.entryPrice) * positionToClose.size;
+                    } else if (positionToClose.side === 'Sell') {
+                        finalPnl = (positionToClose.entryPrice - closingPrice) * positionToClose.size;
+                    }
+                    console.log(`Position closed at price ${closingPrice} with P/L: ${finalPnl.toFixed(2)}`);
+
+                    chartManager.closePosition(positionToClose.timeIndex, closingPrice, new Date(backgroundFullHistoricalData[backgroundCurrentTimeIndex].time).getTime());
+
+                    // TODO: Update the main balance here. 
+                    // This requires knowing the current balance and how P/L affects it.
+                    // Example (assuming a global 'balance' variable exists):
+                    // balance += finalPnl;
+                    // updateBalanceDisplay(); // Function to update the balance in the UI
+                    
+                    // For now, just alert the P/L
+                    await updateBalanceFetch(1, positionToClose.side == 'Buy' ? 1 : 0);
+                    await updateBalance();
+                    
+                    if (log) {
+                        alert(`Closed position with P/L: $${finalPnl.toFixed(2)}`);
+                    }
+                    
+                    // Update balance on the server (if applicable)
+                    // updateBalance(); // This likely needs modification to send the *new* balance
+
+                } else {
+                    console.warn("Could not determine closing price.");
+                    if (log) {
+                        alert("Could not determine closing price. Position removed without calculating final P/L.")
+                    }
+                }
+                // --- Recalculate final P/L at the moment of closing --- END
+
+                // Remove the position from the array
+                let closedPositionData = currentPositions.splice(index, 1)[0];
+                const exitTime = backgroundFullHistoricalData[backgroundCurrentTimeIndex].time; // Capture the exit time
+                const exitPrice = closingPrice; // Capture the exit price
+
+                // Create an object to store the closed position details
+                const closedPosition = {
+                    symbol: 'N/A', // Store the symbol
+                    entryTime: closedPositionData.entryTime,
+                    side: closedPositionData.side,
+                    size: closedPositionData.size,
+                    entryPrice: closedPositionData.entryPrice,
+                    exitTime: exitTime, // Add exit time
+                    exitPrice: exitPrice, // Add exit price
+                    pnl: finalPnl // Add the profit/loss
+                };
+
+                // Assuming you have a closedPositions array to store closed positions
+                closedPositions.push(closedPosition);
+
+                // Update the display
+                updateCurrentPositions();
+                // You might also want to update trade history here
+                // updateTradeHistory(positionToClose, closingPrice, finalPnl); 
+            } else {
+                console.error('Invalid index for closePosition:', index);
+            }
+        }
+
+        function buyLots() {
+            let lots = getLots();
+            let bidPrice = getBidPrice();
+
+            if (lots == null) {
+                return alert("Please enter valid number of lots")
+            }
+
+            if (bidPrice == null) {
+                return alert("Something went wrong when buying lots")
+            }
+
+            let investedBalance = getCurrentInvestedBalance();
+
+            let total = bidPrice * lots;
+
+            if ((balance * 100) - investedBalance < total) {
+                return alert("You don't have enough balance to buy that many lots")
+            }
+
+            currentPositions.push({
+                entryTime: backgroundFullHistoricalData[backgroundCurrentTimeIndex].time, // Current time as entry time
+                side: 'Buy', // Side of the trade
+                size: lots, // Size of the trade
+                entryPrice: bidPrice, // Entry price of the trade
+                total: total, // Total cost of the trade
+                timeIndex: backgroundCurrentTimeIndex
+            });
+
+            updateCurrentPositions();
+
+            chartManager.openPosition(backgroundCurrentTimeIndex, bidPrice, new Date(backgroundFullHistoricalData[backgroundCurrentTimeIndex].time).getTime(), '100, 100, 100');
+
+        }
+
+        function sellLots() {
+            let lots = getLots();
+            let askPrice = getAskPrice();
+
+            if (lots == null) {
+                return alert("Please enter valid number of lots")
+            }   
+
+            if (askPrice == null) {
+                return alert("Something went wrong when selling lots")
+            }
+
+            let total = askPrice * lots;
+
+            let investedBalance = getCurrentInvestedBalance();
+
+            if ((balance * 100) - investedBalance < total) {
+                return alert("You don't have enough balance to sell that many lots")
+            }
+
+            currentPositions.push({
+                entryTime: backgroundFullHistoricalData[backgroundCurrentTimeIndex].time, // Current time as entry time
+                side: 'Sell', // Side of the trade
+                size: lots, // Size of the trade
+                entryPrice: askPrice, // Entry price of the trade
+                total: total, // Total cost of the trade
+                timeIndex: backgroundCurrentTimeIndex
+            });
+
+            updateCurrentPositions();
+
+            chartManager.openPosition(backgroundCurrentTimeIndex, askPrice, new Date(backgroundFullHistoricalData[backgroundCurrentTimeIndex].time).getTime(), '100, 100, 100');
+            
+        }
+
+        buyButton.addEventListener('click', () => {
+            buyLots();
+        });
+
+        sellButton.addEventListener('click', () => {
+            sellLots();
+        });
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetTab = button.getAttribute('data-tab');
+
+                // Update button active states
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+
+                // Update content visibility and refresh content if needed
+                tabContents.forEach(content => {
+                    if (content.id === targetTab) {
+                        content.classList.add('active');
+                        // Refresh content when tab becomes active
+                        if (targetTab === 'current-positions') {
+                            updateCurrentPositions();
+                        } else if (targetTab === 'closed-positions') {
+                            // Make sure the ID here matches your HTML ('trade-history' or 'closed-positions')
+                            updateClosedPositions(); 
+                        }
+                    } else {
+                        content.classList.remove('active');
+                    }
+                });
+            });
+        });
+
+        // --- Simulation Logic Functions ---
+        async function getNewRandomTicker() {
+            try {
+                const r = await fetch('/api/get-ticker', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({username: getCookie('username'), password: getCookie('password')})
+                }).then(res => res.json());
+
+                if (r.success) {
+                    // return ['PSX', '2025-03-26']   // 3 steps for 1m, switch to 5m, 3 steps, draw line, step to cause blank chart error
+                    // return ['XOM', '2025-03-13']
+                    return [r.ticker, r.date];
+                } else {
+                    console.error('Error fetching new ticker:', r.error);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error fetching new ticker', error);
+                return null;
+            }
+        }
+
+        // Transform API data [[ts, o, h, l, c, v],...] to chart format [{time, open,...},...]
+        function transformApiData(apiData) {
+            if (!Array.isArray(apiData)) {
+                console.error("Invalid data format received from API:", apiData);
+                return [];
+            }
+            return apiData.reduce((acc, item) => {
+                // Validate item structure
+                if (Array.isArray(item) && item.length >= 6) {
+                    let timeValue = item[0];
+                    // Convert timestamp if it's a number
+                    if (typeof timeValue === 'number') {
+                        timeValue = new Date(timeValue * 1000).toISOString(); // Convert to ISO string
+                    }
+                    if (item[1] == null) {
+                        return acc;
+                    }
+                    acc.push({
+                        time: timeValue,
+                        open: item[1],
+                        high: item[2],
+                        low: item[3],
+                        close: item[4],
+                        volume: item[5]
+                    });
+                } else {
+                    console.warn("Skipping invalid data point:", item);
+                }
+                return acc;
+            }, []); // Initialize accumulator as an empty array
+        }
+
+        function getLots() {
+            try {
+                let lots = document.querySelector('#trade-lots').value;
+                if (lots == null || lots.length == 0) {
+                    lots = 0;
+                } else {
+                    lots = parseFloat(lots);
+                }
+                return lots
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function getAskPrice() {
+            try {
+                let askPrice = backgroundFullHistoricalData[backgroundCurrentTimeIndex].close
+                return parseFloat(askPrice)
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function getBidPrice() {
+            try {
+                let bidPrice = backgroundFullHistoricalData[backgroundCurrentTimeIndex].close
+                return parseFloat(bidPrice)
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function updateAskBidPrices() {
+            try {
+                let lots = getLots();
+                let askPrice = getAskPrice();
+                let bidPrice = getBidPrice();
+
+                if (askPrice == null || bidPrice == null) {
+                    document.querySelector('#ask-price').innerHTML = `Ask: `;
+                    document.querySelector('#bid-price').innerHTML = `Bid: `;
+                } else {
+                    askPrice = askPrice * lots;
+                    bidPrice = bidPrice * lots;
+
+                    document.querySelector('#ask-price').innerHTML = `Ask: ${parseFloat(askPrice).toFixed(2)}`;
+                    document.querySelector('#bid-price').innerHTML = `Bid: ${parseFloat(bidPrice).toFixed(2)}`;
+                }
+            } catch (error) {
+                document.querySelector('#ask-price').innerHTML = `Ask: `;
+                document.querySelector('#bid-price').innerHTML = `Bid: `;
+            }
+        }
+
+        async function getData(endDate, daysBack) {
+
+        }
+        
+        async function initializeChartWithData(differentInterval = false) {
+            console.log(`Fetching data for ${currentTicker} interval ${selectedInterval}...`);
+            // Optional: Add a loading indicator UI element
+
+            try {
+                // Construct API URL
+
+                // Get the current date from the last full historical data
+                let currentDate = null;
+                if (differentInterval) {
+                    if (backgroundFullHistoricalData.length > 0 && currentTimeIndex >= 0 && currentTimeIndex < backgroundFullHistoricalData.length) {
+                        currentDate = backgroundFullHistoricalData[backgroundFullHistoricalData.length - 1].time
+                    }
+                } else {
+                    backgroundFullHistoricalData = [];
+                    backgroundDisplayedData = [];
+                    backgroundCurrentTimeIndex = -1;
+                    backgroundSelectedInterval = null;
+                    let [ticker, date] = await getNewRandomTicker();
+                    currentTicker = ticker;
+                    currentEndDate = date;
+                }
+
+                let endDate = currentEndDate;
+                if (currentDate != null) {
+                    endDate = new Date(currentDate);
+                    endDate.setDate(endDate.getDate() + 1); // Increment the date by 1
+                    endDate = endDate.toISOString().split('T')[0];
+                }
+                let daysBack = 7;
+                if (selectedInterval == '5m') {
+                    chartManager.xspan = 60 * 5;
+                    daysBack = 37;
+                } else if (selectedInterval == '30m') {
+                    chartManager.xspan = 60 * 30;
+                    daysBack = 37;
+                } else if (selectedInterval == '1h') {
+                    chartManager.xspan = 60 * 60;
+                    daysBack = 700;
+                } else if (selectedInterval == '1d') {
+                    chartManager.xspan = 60 * 60 * 24;
+                    daysBack = 1400;
+                } else {
+                    chartManager.xspan = 60;
+                    daysBack = 7;
+                }
+                const apiUrl = `/api/candles?ticker=${encodeURIComponent(currentTicker)}&interval=${encodeURIComponent(selectedInterval)}&endDate=${endDate}&daysBack=${daysBack}`;
+                
+                const response = await fetch(apiUrl).then(res => res.json());
+
+                let data = null;
+
+                if (response.success) {
+                    data = response.data;
+                    // Log raw timestamps if data exists and is not empty
+                    if (Array.isArray(data) && data.length > 0) {
+                        console.log("Raw Timestamps Received (First, Last):", data[0][0], data[data.length - 1][0]);
+                    } else {
+                        return alert('Something went wrong fetching the data. Please try again.');
+                    }
+
+                    // Transform data
+                    fullHistoricalData = transformApiData(data);
+                    // Log transformed times if data exists and is not empty
+                    // if (fullHistoricalData.length > 0) {
+                    //     console.log("Transformed Times (First, Last):", fullHistoricalData[0].time, fullHistoricalData[fullHistoricalData.length - 1].time);
+                    // }
+
+                    if (fullHistoricalData.length === 0) {
+                        console.warn(`No data received or processed for ${currentTicker} interval ${selectedInterval}.`);
+                        displayedData = [];
+                        currentTimeIndex = -1;
+                    } else {
+                        console.log(`Received ${fullHistoricalData.length} candles.`);
+
+                        // --- Find the start of the last day --- START
+                        let lastDayStartIndex = 0; // Default to the first candle
+                        if (fullHistoricalData.length > 1) {
+                            const lastCandleTime = new Date(fullHistoricalData[fullHistoricalData.length - 1].time);
+                            const lastDayDateString = lastCandleTime.toISOString().split('T')[0]; // Get YYYY-MM-DD
+                            console.log("Calculated Last Candle Time:", lastCandleTime);
+                            console.log("Calculated Last Day String:", lastDayDateString);
+
+                            // Iterate backwards to find the first candle on this date
+                            if (!differentInterval) {
+                                for (let i = fullHistoricalData.length - 2; i >= 0; i--) {
+                                    const currentCandleTime = new Date(fullHistoricalData[i].time);
+                                    const currentDayDateString = currentCandleTime.toISOString().split('T')[0];
+                                    if (currentDayDateString !== lastDayDateString) {
+                                        // The previous candle was on a different day, so index i+1 is the start of the last day
+                                        lastDayStartIndex = i + 1;
+                                        break; // Found the start
+                                    } else if (i === 0) {
+                                        // If we reach the beginning and it's still the same day, the whole dataset is one day
+                                        lastDayStartIndex = 0;
+                                    }
+                                }
+
+                            } else {
+
+                                // console.log(fullHistoricalData)
+                                // return;
+                                updateDisplayedDataFromBackground();
+                                chartManager.renderChart(displayedData);
+                                return;
+                            }
+                        }
+                        console.log(`Setting initial display index to the start of the last day: ${lastDayStartIndex}`);
+                        // --- Find the start of the last day --- END
+
+                        // Set the initial display up to the start of the last day
+                        currentTimeIndex = lastDayStartIndex;
+                        displayedData = fullHistoricalData.slice(0, currentTimeIndex + 1);
+
+                        if (!differentInterval && selectedInterval == '1m') {
+                            backgroundFullHistoricalData = fullHistoricalData;
+                            backgroundDisplayedData = displayedData;
+                            backgroundCurrentTimeIndex = currentTimeIndex;
+                            backgroundSelectedInterval = selectedInterval;
+                        }
+
+                        updateAskBidPrices();
+                    }
+                } else {
+                    if (differentInterval) {
+                        alert('No data found for the selected interval. Please try a different interval.');
+                    }
+                    alert('Something went wrong when fetching the data. Please try again.');
+                    return;
+                }
+                updateDisplayedDataFromBackground(autoScroll=false)
+                chartManager.resetTools();
+                chartManager.renderChart(displayedData);
+
+            } catch (error) {
+                console.error('Error fetching or processing chart data:', error);
+                if (differentInterval) {
+                    alert('No data found for the selected interval. Please try a different interval.');
+                    return;
+                }
+                // Handle error in UI: show message, clear chart?
+                fullHistoricalData = [];
+                displayedData = [];
+                currentTimeIndex = -1;
+                backgroundSelectedInterval = null;
+                initializeChartWithData(differentInterval);
+                // Display error message to user?
+            }
+
+            // Reset pan and redraw with new offset/zoom
+            // requestRedraw(true);
+            // Optional: Remove loading indicator
+        }
+
+
+        function addIntervalToDate(date, interval) {
+            // Extract the numeric value and unit from the interval string
+            const value = parseInt(interval, 10);  // The numeric part
+            const unit = interval.replace(/[0-9]/g, '');  // The unit (e.g., 'm' or 'hr')
+
+            // Create a new Date object to avoid mutating the original one
+            let newDate = new Date(date);
+
+            // Add the interval based on the unit
+            if (unit === 'm') {  // Minutes
+                newDate.setMinutes(newDate.getMinutes() + value);
+            } else if (unit === 'h') {  // Hours
+                newDate.setHours(newDate.getHours() + value);
+            } else if (unit === 'd') {  // Days (if you need this)
+                newDate.setDate(newDate.getDate() + value);
+            } else if (unit === 's') {  // Seconds (if needed)
+                newDate.setSeconds(newDate.getSeconds() + value);
+            } else {
+                throw new Error(`Unsupported interval unit: ${unit}`);
+            }
+
+            return newDate;
+        }
+
+        function updateDisplayedDataFromBackground(autoScroll = true) {
+            let currentTime = new Date(backgroundFullHistoricalData[backgroundCurrentTimeIndex].time).getTime();
+            for (let i = fullHistoricalData.length - 2; i >= 0; i--) {
+
+                const candleTime = new Date(fullHistoricalData[i].time).getTime();
+
+                // Check if the candle time is less than or equal to the current time
+                if (candleTime <= currentTime) {
+                    currentTimeIndex = i;
+
+                    lastDisplayedCandle = fullHistoricalData[currentTimeIndex]
+                    lastDisplayedCandleStart = (new Date(fullHistoricalData[currentTimeIndex].time)).getTime()
+                    lastDisplayedCandleEnd = addIntervalToDate(new Date(fullHistoricalData[currentTimeIndex].time), selectedInterval).getTime()
+                    lastBackgroundCandleEnd = addIntervalToDate(new Date(backgroundFullHistoricalData[backgroundCurrentTimeIndex].time), '1m').getTime()
+
+                    
+                    let low = backgroundFullHistoricalData[backgroundCurrentTimeIndex]['low']
+                    let high = backgroundFullHistoricalData[backgroundCurrentTimeIndex]['high']
+                    let totalVolume = 0;
+
+                    console.log('--------------------------------')
+                    if (lastDisplayedCandleEnd > lastBackgroundCandleEnd) {
+                        for (let j = backgroundCurrentTimeIndex; new Date(backgroundFullHistoricalData[j].time).getTime() >= lastDisplayedCandleStart; j--) {
+                            if (backgroundFullHistoricalData[j]['low'] < low) {
+                                low = backgroundFullHistoricalData[j]['low']
+                            }
+                            if (backgroundFullHistoricalData[j]['high'] > high) {
+                                high = backgroundFullHistoricalData[j]['high']
+                            }
+                            totalVolume += backgroundFullHistoricalData[j]['volume']
+                            console.log(backgroundFullHistoricalData[j]['time'])
+                        }
+                        
+                        currentTimeIndex -= 1;
+                    }
+
+                    displayedData = fullHistoricalData.slice(0, currentTimeIndex + 1);
+                    if (lastDisplayedCandleEnd > lastBackgroundCandleEnd) {
+                        displayedData.push({
+                            time: lastDisplayedCandle.time,
+                            open: lastDisplayedCandle.open,
+                            high: high,
+                            low: low,
+                            close: backgroundFullHistoricalData[backgroundCurrentTimeIndex].close,
+                            volume: totalVolume
+                        })
+                    }
+
+                    updateAskBidPrices();
+                    if (autoScroll) {
+                        // autoScrollToLastCandle();
+                        // requestRedraw(true);
+                    }
+                    return i;
+                }
+            }
+            currentTimeIndex = -1
+            displayedData = []
+            updateAskBidPrices();
+            return -1;
+        }
+
+        function stepChart(steps = 1) {
+            if (!backgroundFullHistoricalData || backgroundFullHistoricalData.length === 0) return; // No data to step through
+            if (backgroundCurrentTimeIndex >= backgroundFullHistoricalData.length - 1) {
+                console.log("End of historical data reached.");
+                return; // Already at the end
+            }
+            backgroundCurrentTimeIndex = Math.min(backgroundCurrentTimeIndex + steps, backgroundFullHistoricalData.length - 1);
+
+            updateDisplayedDataFromBackground(autoScroll=false);
+
+            updateCurrentPositions();
+            updateBalanceFetch();
+        
+            // Render twice to avoid bug
+            chartManager.renderChart(displayedData);
+            chartManager.renderChart(displayedData);
+        }
+
+         // --- Simulation Button Listeners ---
+         newChartButton.addEventListener('click', async() => {
+
+            if (currentPositions.length > 0) {
+                try {
+                    await updateBalanceFetch();
+                    closeAllPositions();
+                } catch (e) {
+                    ;
+                }
+            }
+
+            const [ticker, date] = await getNewRandomTicker();
+            currentTicker = ticker;
+            currentEndDate = date;
+            // currentTicker = 'AMZN'
+            // Update UI if you add a ticker display element
+            console.log("Selected new ticker:", currentTicker);
+
+            selectedInterval = '1m'
+            
+            document.querySelectorAll('#interval-selector button.interval-button').forEach(btn => {
+                btn.classList.remove('active', 'bg-gray-600'); // Assuming active has a different bg
+                btn.classList.add('bg-gray-700');
+                if (btn.getAttribute('data-interval') === selectedInterval) {
+                    btn.classList.add('active', 'bg-gray-600'); // Add active style
+                    btn.classList.remove('bg-gray-700');
+                }
+            });
+
+            initializeChartWithData();
+         });
+
+         stepButton.addEventListener('click', () => {
+            stepChart(1);
+        });
+
+        step10xButton.addEventListener('click', () => {
+            stepChart(10);
+        });
+
+        // --- Interval Selector Listener ---
+        const intervalSelector = document.getElementById('interval-selector');
+        intervalSelector.addEventListener('click', (event) => {
+            const button = event.target.closest('button.interval-button');
+            if (!button) return; // Click wasn't on a button
+
+            const newInterval = button.getAttribute('data-interval');
+            if (newInterval && newInterval !== selectedInterval) {
+                selectedInterval = newInterval;
+
+                // Update active button style
+                intervalSelector.querySelectorAll('button.interval-button').forEach(btn => {
+                    btn.classList.remove('active', 'bg-gray-600'); // Assuming active has a different bg
+                    btn.classList.add('bg-gray-700');
+                    if (btn.getAttribute('data-interval') === selectedInterval) {
+                        btn.classList.add('active', 'bg-gray-600'); // Add active style
+                        btn.classList.remove('bg-gray-700');
+                    }
+                });
+
+                // Fetch data for the new interval
+                initializeChartWithData(differentInterval=true);
+            }
+        });
+
+        // --- Chart Height Resizing Logic ---
+
+
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        async function setupAccount() {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    username: getCookie('username'),
+                    password: getCookie('password')
+                })
+            }).then(res => res.json());
+            if (response.success == 0) {
+                location.href = '/login';
+                return;
+            }
+
+            document.querySelector('#username-display').innerHTML = getCookie('username');
+
+            await updateBalance();
+            
+            
+        }
+
+        async function updateBalance() {
+            const response = await fetch('/api/balance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    username: getCookie('username'),
+                    password: getCookie('password')
+                })
+            }).then(res => res.json());
+
+            if (response.success == 0) {
+                location.href = '/login';
+                return;
+            }
+
+            balance = response.balance;
+            document.querySelector('#balance-display').innerHTML = `$${parseFloat(balance).toFixed(2)}`;
+
+        }
+        // Trigger initial fetch when the script runs
+        setupAccount().then(() => {
+            initializeChartWithData().then(() => {
+                // document.querySelector('#candlestickChart').width = document.querySelector('#candlestickChart').getBoundingClientRect().width;
+                // document.querySelector('#candlestickChart').height = document.querySelector('#candlestickChart').getBoundingClientRect().height;
+                // drawChart();
+            });
+        });
+
+        // Function to update the Closed Positions tab
+        function updateClosedPositions() {
+            console.log('hi')
+            const closedPositionsDiv = document.getElementById('closed-positions'); // Use correct ID if different
+            if (!closedPositionsDiv) {
+                console.error('Closed Positions container div not found.');
+                return;
+            }
+
+            // Clear previous content
+            closedPositionsDiv.innerHTML = '';
+
+            if (!closedPositions || closedPositions.length === 0) {
+                closedPositionsDiv.innerHTML = '<p class="text-gray-400 text-sm">No closed positions history.</p>';
+                return;
+            }
+
+            // Create table structure
+            const table = document.createElement('table');
+            table.className = 'min-w-full divide-y divide-gray-700 text-sm';
+
+            const thead = document.createElement('thead');
+            thead.className = 'bg-gray-700';
+            thead.innerHTML = `
+                <tr>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Symbol</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Side</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Size</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Time</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Exit Time</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Exit Price</th>
+                    <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">P/L ($)</th>
+                </tr>
+            `;
+
+            const tbody = document.createElement('tbody');
+            tbody.className = 'bg-gray-800 divide-y divide-gray-600';
+
+            // Sort closed positions by exit time, newest first (optional)
+            const sortedClosedPositions = [...closedPositions].sort((a, b) => new Date(b.exitTime) - new Date(a.exitTime));
+
+            sortedClosedPositions.forEach(pos => {
+                const tr = document.createElement('tr');
+                const pnl = parseFloat(pos.pnl || 0);
+                const pnlClass = pnl >= 0 ? 'text-green-400' : 'text-red-400';
+                const formattedEntryTime = pos.entryTime ? new Date(pos.entryTime).toLocaleString() : 'N/A';
+                const formattedExitTime = pos.exitTime ? new Date(pos.exitTime).toLocaleString() : 'N/A';
+
+                tr.innerHTML = `
+                    <td class="px-4 py-2 whitespace-nowrap">${pos.symbol}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${pos.side}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${pos.size}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${formattedEntryTime}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">$${parseFloat(pos.entryPrice).toFixed(2)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${formattedExitTime}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">$${pos.exitPrice !== null ? parseFloat(pos.exitPrice).toFixed(2) : 'N/A'}</td>
+                    <td class="px-4 py-2 whitespace-nowrap ${pnlClass}">${pnl.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+            closedPositionsDiv.appendChild(table);
+        }
+    </script>
+</body>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const buttons = document.querySelectorAll('.tvchart-button');
+
+        buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all buttons
+                buttons.forEach(btn => btn.classList.remove('active'));
+                // Add active class to the clicked button
+                chartManager.selectTool(this.id);
+                this.classList.add('active');
+            });
+        });
+    });
+</script>
+</html>

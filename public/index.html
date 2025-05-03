@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="container mx-auto p-5">
+        <div class="flex justify-between items-center mb-5">
+            <h1 class="text-3xl font-bold">Leaderboard</h1>
+            <a id="trade-login-button" href="/login" title="Login to Trade" class="text-gray-400 hover:text-white transition duration-150 p-2 rounded-full hover:bg-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </a>
+        </div>
+        
+        <div id="leaderboard" class="mb-10"></div>
+        
+        <!-- Modal for displaying the chart -->
+        <style>
+            #chartModal {
+                width: 100%;
+                height: 100%;
+                align-items: center;
+                justify-content: center;
+                display: flex;
+            }
+
+            #chartModal.hidden {
+                display: none;
+            }
+
+            #chartModal>div {
+                height: calc(90% - 2.5em);
+                width: calc(90% - 2.5em);
+            }
+
+            #chartModal canvas {
+                height: 50%;
+                width: 100%;
+            }
+
+            #chartContainer {
+                height: calc(100% - 5em);
+                width: 100%;
+            }
+
+        #chartCheckpointSelector {
+            background-color: #2d3748; /* Dark background */
+            color: #ffffff; /* White text */
+            border: 1px solid #4a5568; /* Border color */
+            border-radius: 0.375rem; /* Rounded corners */
+            padding: 0.5rem; /* Padding */
+            font-size: 1rem; /* Font size */
+            transition: background-color 0.3s, border-color 0.3s; /* Transition for hover effects */
+        }
+
+        #chartCheckpointSelector option {
+            background-color: #2d3748; /* Dark background for options */
+            color: #ffffff; /* White text for options */
+        }
+
+        #chartCheckpointSelector:hover {
+            background-color: #4a5568; /* Lighter background on hover */
+            border-color: #cbd5e0; /* Lighter border on hover */
+        }
+        </style>
+        <div id="chartModal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center">
+            <div class="bg-gray-800 p-5 rounded-lg w-11/12 h-11/12 relative max-w-4xl max-h-4xl" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <button id="closeModal" class="absolute top-2 right-2 text-white text-xl hover:text-red-500">&times;</button>
+                <h2 id="modalTitle" class="text-xl mb-3"></h2>
+                <div id="buySellCount" class="text-lg mb-3"></div>
+                <div id="winRate" class="text-lg mb-3"></div>
+                <div id="rr" class="text-lg mb-3"></div>
+                <select id="chartCheckpointSelector" class="mb-3">
+                    <option value="">All Checkpoints</option>
+                    <option value="5">Past 5 Checkpoints</option>
+                    <option value="10">Past 10 Checkpoints</option>
+                    <option value="25">Past 25 Checkpoints</option>
+                    <option value="50">Past 50 Checkpoints</option>
+                    <option value="100">Past 100 Checkpoints</option>
+                    <option value="100">Past 200 Checkpoints</option>
+                    <option value="100">Past 500 Checkpoints</option>
+                    <option value="100">Past 1000 Checkpoints</option>
+                </select>
+                <div id="chartContainer">
+                    <canvas id="checkpointChart" class="w-full h-full"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance; // Variable to hold the chart instance
+
+        async function fetchLeaderboard() {
+            const response = await fetch('/api/leaderboard');
+            const data = await response.json();
+            if (data.success) {
+                renderLeaderboard(data.leaderboard);
+            }
+        }
+
+        function renderLeaderboard(leaderboard) {
+            const leaderboardDiv = document.getElementById('leaderboard');
+            leaderboardDiv.innerHTML = leaderboard.map(user => `
+                <div class="bg-gray-800 p-4 rounded-lg mb-2 cursor-pointer" onclick="showChart('${user.username}')">
+                    <h2 class="text-xl">${user.username}</h2>
+                    <p>Balance: $${user.balance}</p>
+                </div>
+            `).join('');
+        }
+
+        async function showChart(username) {
+            document.getElementById('chartModal').setAttribute('data-username', username);
+            const response = await fetch(`/api/leaderboard?selectedUser=${username}`);
+            const data = await response.json();
+            if (data.success) {
+                renderChart(data.leaderboard[0]); // Pass the selected user data
+                document.getElementById('modalTitle').textContent = `${username} Checkpoints`;
+                document.getElementById('chartModal').classList.remove('hidden');
+            }
+        }
+
+        function renderChart(user) {
+            const ctx = document.getElementById('checkpointChart').getContext('2d');
+
+            // Destroy the existing chart instance if it exists
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const labels = [];
+            const dataPoints = [];
+            const buySellDataPoints = [];
+            const backgroundColors = [];
+            const borderColors = [];
+            const pointBackgroundColors = [];
+            const pointBorderColors = [];
+
+            let minBalance = 0;
+            let maxBalance = 0;
+            
+            if (user.checkpoints.length > 0) {
+                minBalance = user.checkpoints[0].balance;
+                maxBalance = user.checkpoints[0].balance;
+                for (let i = 0; i < user.checkpoints.length; i++) {
+                    if (user.checkpoints[i].balance - minBalance < 0) {
+                        minBalance = user.checkpoints[i].balance;
+                    }
+                    if (user.checkpoints[i].balance - maxBalance > 0) {
+                        maxBalance = user.checkpoints[i].balance;
+                    }
+                }
+                console.log(minBalance, maxBalance);
+            }
+
+            let checkpointCount = document.getElementById('chartCheckpointSelector').value;
+            if (checkpointCount === "") {
+                checkpointCount = user.checkpoints.length;
+            } else {
+                checkpointCount = parseInt(checkpointCount);
+            }
+            user.checkpoints = user.checkpoints.slice(-checkpointCount);
+
+            let buyCount = 0; // Initialize buy count
+            let sellCount = 0; // Initialize sell count
+
+            let total = 0;
+            let wins = 0;
+
+            let total_win = 0;
+            let total_loss = 0;
+
+            for (let index = 1; index < user.checkpoints.length; index++) {
+                let cp = user.checkpoints[index];
+                // Replace the label with the created_at timestamp
+                labels.push(new Date(cp.created_at).toLocaleString()); // Format the date as needed
+                dataPoints.push(cp.balance); // Push balance for regular checkpoints
+                if (cp.buy_sell) {
+                    buySellDataPoints.push(cp.balance); // Only push buy/sell points to this array
+                    backgroundColors.push(user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 0.2)' : 'rgba(255, 99, 132, 0.2)'); // Fill color for buy/sell
+                    borderColors.push(user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)'); // Border color for buy/sell
+                    pointBackgroundColors.push(user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)'); // Point color for buy/sell
+                    pointBorderColors.push(user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)'); // Point border color for buy/sell
+                    
+                    // Increment buy or sell count based on the value of buy_sell
+                    if (cp.buy_or_sell === 1) { 
+                        buyCount++;
+                        total += 1;
+                    } else if (cp.buy_or_sell === 0) {
+                        sellCount++;
+                        total += 1;
+                    } else {
+
+                    }
+                    if (cp.buy_or_sell != null) {
+                        if (index > 0) {
+                            console.log(cp.balance, user.checkpoints[index - 1].balance, parseFloat(cp.balance) >= parseFloat(user.checkpoints[index - 1].balance));
+                        }
+                        if (index > 0 && parseFloat(cp.balance) >= parseFloat(user.checkpoints[index - 1].balance)) {
+                            wins += 1;
+                            total_win += parseFloat(cp.balance) - parseFloat(user.checkpoints[index - 1].balance);
+                        } else if (index > 0) {
+                            total_loss += parseFloat(user.checkpoints[index - 1].balance) - parseFloat(cp.balance);
+                        }
+                    }
+                } else {
+                    buySellDataPoints.push(null); // Push null for regular checkpoints in the buy/sell dataset
+                    backgroundColors.push('rgba(0, 0, 0, 0)'); // Transparent fill color for checkpoints
+                    borderColors.push('rgba(54, 162, 235, 0.3)'); // Light border color for checkpoints
+                    pointBackgroundColors.push('rgba(54, 162, 235, 0.1)'); // Light point color for checkpoints
+                    pointBorderColors.push('rgba(54, 162, 235, 0.3)'); // Light point border color for checkpoints
+                }
+            }
+
+            // Update the buy/sell count display
+            document.getElementById('buySellCount').textContent = `Total Buys: ${buyCount}, Total Sells: ${sellCount}`;
+            document.getElementById('winRate').textContent = `Win Rate: ${((wins / total) * 100).toFixed(2)}%`;
+            document.getElementById('rr').textContent = `Average Win: $${(total_win/wins).toFixed(2)}, Average Loss: $${(total_loss / (total - wins)).toFixed(2)}`;
+
+            if (dataPoints.length === 0 && buySellDataPoints.length === 0) {
+                console.log("No checkpoints available for rendering.");
+                return; // Exit if no data points
+            }
+
+            // Create a new chart instance
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `${user.username} Buy/Sell Checkpoints`, // Buy/sell checkpoints dataset
+                            data: buySellDataPoints,
+                            backgroundColor: user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 0.2)' : 'rgba(255, 99, 132, 0.2)', // Fill color for buy/sell
+                            borderColor: user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)', // Border color for buy/sell
+                            borderWidth: 2,
+                            fill: true,
+                            pointBackgroundColor: user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)', // Point color for buy/sell
+                            pointBorderColor: user.checkpoints[user.checkpoints.length - 1].balance >= user.checkpoints[0].balance ? 'rgba(99, 255, 132, 1)' : 'rgba(255, 99, 132, 1)', // Point border color for buy/sell
+                            pointRadius: 1.5, // Larger radius for buy/sell points
+                            spanGaps: true, // Connect lines across null values
+                        },
+                        {
+                            label: `${user.username} Checkpoints`, // Regular checkpoints dataset
+                            data: dataPoints,
+                            backgroundColor: 'rgba(0, 0, 0, 0)', // Transparent fill color for checkpoints
+                            borderColor: 'rgba(54, 162, 235, 0.3)', // Light border color for checkpoints
+                            borderWidth: 1,
+                            fill: false,
+                            pointBackgroundColor: 'rgba(54, 162, 235, 0.1)', // Light point color for checkpoints
+                            pointBorderColor: 'rgba(54, 162, 235, 0.3)', // Light point border color for checkpoints
+                            pointRadius: 1.2, // Smaller radius for regular checkpoints
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, // Make the chart responsive
+                    maintainAspectRatio: false, // Allow height to be flexible
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            min: minBalance - (maxBalance - minBalance) * 0.1,
+                            max: maxBalance + (maxBalance - minBalance) * 0.1
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('chartModal').classList.add('hidden');
+        });
+
+        // Close modal when clicking outside of it
+        document.getElementById('chartModal').addEventListener('click', (event) => {
+            if (event.target === document.getElementById('chartModal')) {
+                document.getElementById('chartModal').classList.add('hidden');
+            }
+        });
+
+        document.getElementById('chartCheckpointSelector').addEventListener('change', async () => {
+            let username = document.getElementById('chartModal').getAttribute('data-username');
+            const response = await fetch(`/api/leaderboard?selectedUser=${username}`);
+            const data = await response.json();
+            if (data.success) {
+                renderChart(data.leaderboard[0]); // Pass the selected user data
+                document.getElementById('modalTitle').textContent = `${username} Checkpoints`;
+                document.getElementById('chartModal').classList.remove('hidden');
+            }
+        });
+
+        // Initial population of the leaderboard
+        fetchLeaderboard();
+
+        // Helper function to get a specific cookie by name
+        function getCookie(name) {
+            let cookieArr = document.cookie.split(";");
+            for(let i = 0; i < cookieArr.length; i++) {
+                let cookiePair = cookieArr[i].split("=");
+                /* Removing whitespace at the beginning of the cookie name
+                and compare it with the given string */
+                if(name == cookiePair[0].trim()) {
+                    // Decode the cookie value and return
+                    return decodeURIComponent(cookiePair[1]);
+                }
+            }
+            // Return null if not found
+            return null;
+        }
+
+        // Function to set the trade/login button link based on cookie
+        function setupTradeLoginButton() {
+            const tradeLoginButton = document.getElementById('trade-login-button');
+            if (!tradeLoginButton) return;
+
+            const username = getCookie('username');
+            if (username) {
+                tradeLoginButton.href = '/trade';
+                tradeLoginButton.title = 'Go to Trading Page';
+            } else {
+                tradeLoginButton.href = '/login';
+                tradeLoginButton.title = 'Login to Trade';
+            }
+        }
+
+        // Run the setup function when the page loads
+        document.addEventListener('DOMContentLoaded', setupTradeLoginButton);
+    </script>
+</body>
+</html>
