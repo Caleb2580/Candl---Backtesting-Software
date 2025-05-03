@@ -27,7 +27,7 @@ Compete with other traders & track balances.
 
 ### Trade Analytics  
 See how your trading is doing over time.  
-![Trade Graph](pictures/timespan.jpg)  
+![Trade Graph](pictures/stats.jpg)  
 
 ---
 
