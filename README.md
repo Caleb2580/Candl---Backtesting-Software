@@ -31,7 +31,7 @@ See how your trading is doing over time.
 
 ---
 
-## ⚙️ Tech Stack  
+## Tech Stack  
 - **Backend:** Node.js + MySQL  
 - **Frontend:** HTML, CSS, JavaScript  
 - **Charts:** TradingView Lightweight Charts
